@@ -12,8 +12,9 @@
 // on repeated wrong passwords, a 50 MB upload) are listed at the end.
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = new URL("..", import.meta.url).pathname;
+const root = fileURLToPath(new URL("..", import.meta.url));
 const cfg = readFileSync(join(root, "config.js"), "utf8");
 const pick = (name) => cfg.match(new RegExp(`${name}\\s*=\\s*"([^"]+)"`))?.[1];
 const URL_ = pick("SUPABASE_URL");
