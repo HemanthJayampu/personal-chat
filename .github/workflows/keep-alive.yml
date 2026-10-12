@@ -1,0 +1,31 @@
+# Section 10: ping Supabase every 3 days so the free project doesn't pause
+# after 7 idle days.
+#
+# Repo -> Settings -> Secrets and variables -> Actions -> Variables:
+#   SUPABASE_URL       https://<project-ref>.supabase.co
+#   SUPABASE_ANON_KEY  the publishable/anon key (the same one in config.js)
+#
+# Note: GitHub turns off scheduled workflows in a repo with no commits for
+# 60 days. If that happens, re-enable it from the Actions tab.
+name: Keep Supabase awake
+
+on:
+  schedule:
+    - cron: "17 6 */3 * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call the ping() function
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+        run: |
+          curl -fsS -X POST "$SUPABASE_URL/rest/v1/rpc/ping" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{}'

@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2f6bed">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Chat">
+<title>Personal Chat</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- 1. Login -->
+<section id="screen-login" class="gate" hidden>
+  <form id="login-form" class="gate-card" novalidate>
+    <h1>Personal Chat</h1>
+    <label for="login-user">Username</label>
+    <input id="login-user" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+    <label for="login-pass">Password</label>
+    <input id="login-pass" type="password" autocomplete="current-password" required>
+    <button type="submit" class="primary">Sign in</button>
+    <p class="gate-error" role="alert"></p>
+    <p class="gate-alt">Have an invite code? <a href="#" data-go="signup">Create an account</a></p>
+  </form>
+</section>
+
+<!-- 1b. Login, second step: 2FA code -->
+<section id="screen-mfa" class="gate" hidden>
+  <form id="mfa-form" class="gate-card" novalidate>
+    <h1>Two-factor code</h1>
+    <p class="gate-note">Enter the 6-digit code from your authenticator app.</p>
+    <label for="mfa-code">Code</label>
+    <input id="mfa-code" type="text" inputmode="numeric" autocomplete="one-time-code"
+           pattern="[0-9]{6}" maxlength="6" required>
+    <button type="submit" class="primary">Verify</button>
+    <p class="gate-error" role="alert"></p>
+    <p class="gate-alt"><a href="#" data-action="signout">Use a different account</a></p>
+  </form>
+</section>
+
+<!-- 2. Sign up -->
+<section id="screen-signup" class="gate" hidden>
+  <form id="signup-form" class="gate-card" novalidate>
+    <h1>Create an account</h1>
+    <label for="signup-user">Username</label>
+    <input id="signup-user" type="text" autocomplete="username" autocapitalize="none" spellcheck="false"
+           required minlength="3" maxlength="20" pattern="[a-z0-9_]{3,20}">
+    <small class="hint">3–20 characters: lowercase letters, numbers and _</small>
+    <label for="signup-pass">Password</label>
+    <input id="signup-pass" type="password" autocomplete="new-password" required minlength="10">
+    <small class="hint">At least 10 characters, with letters and numbers</small>
+    <label for="signup-pass2">Confirm password</label>
+    <input id="signup-pass2" type="password" autocomplete="new-password" required>
+    <label for="signup-code">Invite code</label>
+    <input id="signup-code" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" required>
+    <button type="submit" class="primary">Create account</button>
+    <p class="gate-error" role="alert"></p>
+    <p class="gate-alt"><a href="#" data-go="login">Back to sign in</a></p>
+  </form>
+</section>
+
+<!-- 3. Pending / disabled / other notices -->
+<section id="screen-notice" class="gate" hidden>
+  <div class="gate-card">
+    <h1 id="notice-title"></h1>
+    <p id="notice-body" class="gate-note"></p>
+    <button type="button" id="notice-action" class="primary"></button>
+  </div>
+</section>
+
+<!-- 2FA enrolment (mandatory for admin, optional from Settings) -->
+<section id="screen-enroll" class="gate" hidden>
+  <form id="enroll-form" class="gate-card" novalidate>
+    <h1>Set up two-factor</h1>
+    <p id="enroll-why" class="gate-note"></p>
+    <ol class="steps">
+      <li>Open Google Authenticator or Microsoft Authenticator and scan this code.</li>
+      <li>Save the secret below somewhere safe and offline. It's your only way back in if you lose the phone.</li>
+      <li>Type the 6-digit code the app shows.</li>
+    </ol>
+    <div class="qr-wrap"><img id="enroll-qr" alt="QR code for your authenticator app"></div>
+    <code id="enroll-secret" class="secret"></code>
+    <label for="enroll-code">Code</label>
+    <input id="enroll-code" type="text" inputmode="numeric" autocomplete="one-time-code"
+           pattern="[0-9]{6}" maxlength="6" required>
+    <button type="submit" class="primary">Turn on 2FA</button>
+    <p class="gate-error" role="alert"></p>
+    <p class="gate-alt"><a href="#" id="enroll-cancel">Cancel</a></p>
+  </form>
+</section>
+
+<!-- Forced password change after an admin reset -->
+<section id="screen-newpass" class="gate" hidden>
+  <form id="newpass-form" class="gate-card" novalidate>
+    <h1>Choose a new password</h1>
+    <p class="gate-note">Your password was reset by the admin. Pick a new one to continue.</p>
+    <label for="newpass-1">New password</label>
+    <input id="newpass-1" type="password" autocomplete="new-password" required minlength="10">
+    <small class="hint">At least 10 characters, with letters and numbers</small>
+    <label for="newpass-2">Confirm new password</label>
+    <input id="newpass-2" type="password" autocomplete="new-password" required>
+    <button type="submit" class="primary">Save password</button>
+    <p class="gate-error" role="alert"></p>
+    <p class="gate-alt"><a href="#" data-action="signout">Sign out</a></p>
+  </form>
+</section>
+
+<!-- 4. Chat home -->
+<div id="screen-app" class="app" hidden>
+  <aside class="sidebar">
+    <header class="side-head">
+      <span id="me-avatar"></span>
+      <span id="me-name" class="me-name"></span>
+      <button type="button" id="btn-admin" class="icon-btn" title="Admin" hidden>
+        <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        <span class="sr-only">Admin</span>
+      </button>
+      <button type="button" id="btn-settings" class="icon-btn" title="Settings">
+        <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+        <span class="sr-only">Settings</span>
+      </button>
+    </header>
+    <button type="button" id="btn-newchat" class="new-chat">+ New chat</button>
+    <nav aria-label="Conversations"><ul id="conv-list" class="conv-list"></ul></nav>
+  </aside>
+
+  <section class="pane">
+    <header class="topbar">
+      <button type="button" id="btn-back" class="icon-btn back" title="Back to chats">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="m15 18-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="sr-only">Back</span>
+      </button>
+      <span id="conv-title" class="title"></span>
+      <span id="conv-sub" class="sub"></span>
+      <span id="status" class="status" title="Connection status"></span>
+    </header>
+
+    <main id="log" class="log" aria-live="polite"></main>
+
+    <div id="upload" class="upload" hidden>
+      <span id="upload-name"></span>
+      <progress id="upload-bar" max="1" value="0"></progress>
+    </div>
+
+    <div id="pending-file" class="pending-file" hidden>
+      <img id="pending-thumb" class="pending-thumb" alt="" hidden>
+      <span id="pending-file-name"></span>
+      <button type="button" id="pending-file-clear" class="linkish">remove</button>
+    </div>
+
+    <form id="composer" class="composer">
+      <label for="file" class="clip" title="Attach a file (max 50 MB)">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+          <path d="M21.4 11.05 12.25 20.2a5.5 5.5 0 0 1-7.78-7.78l9.2-9.19a3.67 3.67 0 0 1 5.18 5.18l-9.2 9.2a1.83 1.83 0 0 1-2.59-2.6l8.49-8.48"
+                fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="sr-only">Attach a file</span>
+      </label>
+      <input id="file" type="file" hidden>
+      <textarea id="text" rows="1" maxlength="5000" placeholder="Message" title="Type a message, or paste a screenshot to attach it" autocomplete="off"></textarea>
+      <button id="send" type="submit" title="Send">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+          <path d="M3.4 20.6 21 12 3.4 3.4 3.4 10l12.6 2-12.6 2z" fill="currentColor"/>
+        </svg>
+        <span class="sr-only">Send</span>
+      </button>
+    </form>
+  </section>
+
+  <div id="dropzone" class="dropzone" hidden><span>Drop the file to attach it</span></div>
+</div>
+
+<!-- 5. New chat -->
+<dialog id="dlg-newchat" class="dlg">
+  <form method="dialog" id="newchat-form">
+    <header class="dlg-head"><h2>New chat</h2><button value="cancel" class="icon-btn" title="Close">✕</button></header>
+    <p class="gate-note">Pick one person for a direct chat, or several for a group.</p>
+    <input id="newchat-filter" type="search" placeholder="Search people" autocomplete="off">
+    <ul id="newchat-people" class="people"></ul>
+    <div id="newchat-group" hidden>
+      <label for="newchat-name">Group name</label>
+      <input id="newchat-name" type="text" maxlength="60">
+    </div>
+    <p class="gate-error" role="alert"></p>
+    <footer class="dlg-foot">
+      <button value="cancel" class="secondary">Cancel</button>
+      <button type="submit" value="create" id="newchat-create" class="primary" disabled>Start chat</button>
+    </footer>
+  </form>
+</dialog>
+
+<!-- 6. Settings -->
+<dialog id="dlg-settings" class="dlg">
+  <div class="dlg-body">
+    <header class="dlg-head"><h2>Settings</h2><button type="button" data-close class="icon-btn" title="Close">✕</button></header>
+
+    <form id="set-name-form" class="set-block">
+      <h3>Profile</h3>
+      <label for="set-display">Display name</label>
+      <div class="row">
+        <input id="set-display" type="text" maxlength="40">
+        <button type="submit" class="secondary">Save</button>
+      </div>
+      <small class="hint" id="set-username"></small>
+    </form>
+
+    <form id="set-pass-form" class="set-block" novalidate>
+      <h3>Change password</h3>
+      <label for="set-pass-cur">Current password</label>
+      <input id="set-pass-cur" type="password" autocomplete="current-password" required>
+      <label for="set-pass-1">New password</label>
+      <input id="set-pass-1" type="password" autocomplete="new-password" required minlength="10">
+      <label for="set-pass-2">Confirm new password</label>
+      <input id="set-pass-2" type="password" autocomplete="new-password" required>
+      <button type="submit" class="secondary">Change password</button>
+    </form>
+
+    <section class="set-block">
+      <h3>Two-factor authentication</h3>
+      <p id="set-mfa-state" class="gate-note"></p>
+      <div class="row">
+        <button type="button" id="set-mfa-add" class="secondary">Set up 2FA</button>
+        <button type="button" id="set-mfa-remove" class="danger" hidden>Turn off 2FA</button>
+      </div>
+    </section>
+
+    <section class="set-block">
+      <h3>Notifications</h3>
+      <p id="set-notif-state" class="gate-note"></p>
+      <button type="button" id="set-notif" class="secondary">Allow notifications</button>
+    </section>
+
+    <section class="set-block">
+      <h3>Sessions</h3>
+      <div class="row">
+        <button type="button" id="set-logout" class="secondary">Log out</button>
+        <button type="button" id="set-logout-all" class="danger">Log out of all devices</button>
+      </div>
+    </section>
+    <p class="gate-error" role="alert"></p>
+  </div>
+</dialog>
+
+<!-- 7. Admin -->
+<dialog id="dlg-admin" class="dlg wide">
+  <div class="dlg-body">
+    <header class="dlg-head"><h2>Admin</h2><button type="button" data-close class="icon-btn" title="Close">✕</button></header>
+    <nav class="tabs" role="tablist">
+      <button type="button" role="tab" data-tab="pending" aria-selected="true">Pending <span id="adm-pending-count" class="badge" hidden></span></button>
+      <button type="button" role="tab" data-tab="users">Users</button>
+      <button type="button" role="tab" data-tab="invites">Invites</button>
+      <button type="button" role="tab" data-tab="storage">Storage</button>
+      <button type="button" role="tab" data-tab="audit">Audit log</button>
+    </nav>
+
+    <section data-panel="pending"><ul id="adm-pending" class="rows"></ul></section>
+
+    <section data-panel="users" hidden><ul id="adm-users" class="rows"></ul></section>
+
+    <section data-panel="invites" hidden>
+      <form id="adm-invite-form" class="row wrap">
+        <label>Uses <input id="adm-invite-uses" type="number" min="1" max="100" value="1"></label>
+        <label>Expires in (days) <input id="adm-invite-days" type="number" min="1" max="365" value="7"></label>
+        <button type="submit" class="primary">Create invite code</button>
+      </form>
+      <ul id="adm-invites" class="rows"></ul>
+    </section>
+
+    <section data-panel="storage" hidden>
+      <p id="adm-storage-text" class="storage-text"></p>
+      <progress id="adm-storage-bar" class="storage-bar" max="1" value="0"></progress>
+      <p class="gate-note">Files are deleted automatically 30 days after upload. Deleting a message removes its file straight away.</p>
+    </section>
+
+    <section data-panel="audit" hidden><ul id="adm-audit" class="rows audit"></ul></section>
+
+    <p class="gate-error" role="alert"></p>
+  </div>
+</dialog>
+
+<div id="toast" class="toast" role="status" hidden></div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

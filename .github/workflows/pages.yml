@@ -1,0 +1,56 @@
+# Publish the frontend to GitHub Pages on every push to main.
+# Only the browser files are published -- not supabase/, scripts/ or docs.
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stage site files
+        run: |
+          mkdir -p _site
+          cp -r index.html style.css config.js manifest.json sw.js js icons _site/
+          touch _site/.nojekyll
+
+      # Checklist item 9: the service_role key must never ship.
+      - name: Refuse to publish secret keys
+        run: |
+          if grep -rEn 'service_role|sb_secret_|SUPABASE_SERVICE_ROLE_KEY' _site; then
+            echo "::error::A secret key reference was found in the site files."
+            exit 1
+          fi
+          # Legacy JWT keys: the payload of a service_role key decodes to "role":"service_role".
+          for jwt in $(grep -rhoE 'eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+' _site || true); do
+            payload=$(echo "$jwt" | cut -d. -f2 | tr '_-' '/+')
+            while [ $(( ${#payload} % 4 )) -ne 0 ]; do payload="$payload="; done
+            if echo "$payload" | base64 -d 2>/dev/null | grep -q '"service_role"'; then
+              echo "::error::A service_role JWT was found in the site files."
+              exit 1
+            fi
+          done
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4

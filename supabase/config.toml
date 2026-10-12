@@ -1,0 +1,18 @@
+# Supabase CLI config -- only the parts this project relies on.
+project_id = "personal-chat"
+
+# All three functions do their own auth checks, so the gateway's JWT check
+# is off. (The new sb_publishable_ keys are not JWTs, so the gateway check
+# would reject the public sign-up call anyway.)
+#   signup-with-invite  public; invite code + per-IP limit
+#   admin-users         caller's JWT must pass public.is_admin() (aal2)
+#   cleanup-files       x-cleanup-secret header from pg_cron
+
+[functions.signup-with-invite]
+verify_jwt = false
+
+[functions.admin-users]
+verify_jwt = false
+
+[functions.cleanup-files]
+verify_jwt = false
